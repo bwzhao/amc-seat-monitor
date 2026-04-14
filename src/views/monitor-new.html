@@ -1,0 +1,84 @@
+<div class="space-y-4">
+  <div class="flex items-center gap-3">
+    <a href="javascript:history.back()" class="text-gray-400 hover:text-white">&larr;</a>
+    <h1 class="text-xl font-bold">Configure Monitor</h1>
+  </div>
+
+  <div class="bg-gray-800 rounded-xl p-4 space-y-1" id="info-card">
+    <div class="font-semibold" id="movie-name"></div>
+    <div class="text-sm text-gray-400" id="theatre-name"></div>
+    <div class="text-sm text-gray-400" id="showtime-info"></div>
+  </div>
+
+  <div class="bg-gray-800 rounded-xl p-4 space-y-2">
+    <h2 class="font-semibold">What are "Best Seats"?</h2>
+    <p class="text-sm text-gray-400">We look for seats in the <span class="text-green-400 font-medium">center columns</span> of the <span class="text-green-400 font-medium">back half</span> of the theater — the sweet spot for picture and sound.</p>
+    <div class="flex gap-4 mt-2 text-xs text-gray-500">
+      <span>Back half rows + center 34% of columns</span>
+    </div>
+  </div>
+
+  <form id="monitor-form" class="bg-gray-800 rounded-xl p-4 space-y-4">
+    <div>
+      <label class="block text-sm font-medium mb-1">Check Interval</label>
+      <select name="pollInterval"
+        class="w-full bg-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500">
+        <option value="1">Every 1 minute</option>
+        <option value="2" selected>Every 2 minutes</option>
+        <option value="5">Every 5 minutes</option>
+        <option value="10">Every 10 minutes</option>
+      </select>
+    </div>
+
+    <button type="submit"
+      class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-lg transition text-lg">
+      Start Monitoring
+    </button>
+  </form>
+</div>
+
+<script>
+(async () => {
+  const params = new URLSearchParams(location.search);
+  const theatreId = params.get('theatreId');
+  const theatreSlug = params.get('theatreSlug');
+  const theatreName = decodeURIComponent(params.get('theatreName') || '');
+  const movieTitle = decodeURIComponent(params.get('movieTitle') || '');
+  const showtimeId = params.get('showtimeId');
+  const showtimeDisplay = decodeURIComponent(params.get('showtimeDisplay') || '');
+  const showtimeDatetime = params.get('showtimeDatetime') || '';
+  const showtimeUrl = params.get('showtimeUrl') || '';
+
+  document.getElementById('movie-name').textContent = movieTitle;
+  document.getElementById('theatre-name').textContent = theatreName;
+  document.getElementById('showtime-info').textContent = showtimeDisplay;
+
+  // Submit
+  const form = document.getElementById('monitor-form');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector('button[type=submit]');
+    btn.disabled = true;
+    btn.textContent = 'Creating...';
+    try {
+      await fetchApi('/api/monitors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          theatreId, theatreName, theatreSlug,
+          movieId: params.get('movieId'), movieTitle,
+          showtimeId, showtimeDisplay, showtimeDatetime, showtimeUrl,
+          minRow: 0,
+          centerBias: 0.33,
+          pollInterval: parseInt(form.pollInterval.value),
+        }),
+      });
+      location.href = '/dashboard';
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = 'Start Monitoring';
+      alert('Failed: ' + err.message);
+    }
+  });
+})();
+</script>

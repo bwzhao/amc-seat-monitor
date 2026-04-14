@@ -1,0 +1,266 @@
+<div class="space-y-4">
+  <div class="flex items-center gap-3">
+    <a href="javascript:history.back()" class="text-gray-400 hover:text-white">&larr;</a>
+    <h1 class="text-xl font-bold" id="page-title">Showtimes</h1>
+  </div>
+
+  <div class="flex gap-2 overflow-x-auto pb-2" id="date-tabs"></div>
+
+  <div class="flex gap-2 flex-wrap" id="format-filters"></div>
+
+  <div id="showtime-list" class="space-y-3">
+    <div class="text-center py-8 text-gray-400">Loading showtimes...</div>
+  </div>
+</div>
+
+<style>
+  .score-ring {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .score-ring-inner {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+  }
+  .seat-chip {
+    display: inline-block; padding: 2px 6px; border-radius: 4px;
+    font-size: 11px; margin-right: 4px; margin-top: 2px;
+  }
+  .format-btn { transition: all 0.15s; }
+  .format-btn.active { background: #e53e3e; color: white; border-color: #e53e3e; }
+</style>
+
+<script>
+(async () => {
+  const params = new URLSearchParams(location.search);
+  const theatreId = params.get('theatreId');
+  const theatreSlug = params.get('theatreSlug');
+  const theatreName = params.get('theatreName') || '';
+  const movieId = params.get('movieId');
+  const movieSlug = params.get('movieSlug');
+  const movieTitle = params.get('movieTitle') || '';
+
+  document.getElementById('page-title').textContent = movieTitle ? decodeURIComponent(movieTitle) : 'Showtimes';
+
+  // Date tabs
+  const dateTabs = document.getElementById('date-tabs');
+  const dates = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    dates.push(d.toISOString().slice(0, 10));
+  }
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  dateTabs.innerHTML = dates.map((d, i) => {
+    const dt = new Date(d + 'T12:00:00');
+    const label = i === 0 ? 'Today' : dayNames[dt.getDay()] + ' ' + (dt.getMonth()+1) + '/' + dt.getDate();
+    return `<button data-date="${d}" class="date-tab whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium ${i===0?'bg-red-600 text-white':'bg-gray-800 text-gray-300 hover:bg-gray-700'} transition">${label}</button>`;
+  }).join('');
+
+  let fetchGeneration = 0;
+  let allShowtimes = [];     // Full list for current date
+  let activeFilter = 'all';  // 'all' or a format string
+
+  function scoreColor(score) {
+    if (score >= 80) return '#48bb78';
+    if (score >= 60) return '#4299e1';
+    if (score >= 40) return '#ecc94b';
+    if (score >= 20) return '#ed8936';
+    return '#fc8181';
+  }
+
+  function renderScoreHTML(data) {
+    if (data.error) {
+      return '<div class="text-xs text-gray-500 mt-2">Seats unavailable</div>';
+    }
+    const color = scoreColor(data.score);
+    const top5Html = data.top5.map(s =>
+      `<span class="seat-chip bg-gray-700 text-gray-200">${esc(s.seatName)}</span>`
+    ).join('');
+    return `
+      <div class="flex items-center gap-3 mt-2">
+        <div class="score-ring" style="background: conic-gradient(${color} ${data.score}%, #374151 0)">
+          <div class="score-ring-inner bg-gray-800 text-white">${data.score}</div>
+        </div>
+        <div>
+          <div class="text-xs font-medium" style="color:${color}">${esc(data.label)} <span class="text-gray-500 font-normal">${data.totalAvailable} avail</span></div>
+          <div class="mt-0.5">${top5Html}</div>
+        </div>
+      </div>`;
+  }
+
+  function renderCard(s) {
+    const time = s.displayTime ? new Date(s.displayTime).toLocaleTimeString('en-US', {hour:'numeric',minute:'2-digit'}) : s.dateTime;
+    const stId = s.performanceNumber || s.id;
+    const amcId = s.url ? s.url.split('/').pop() : s.id;
+    return `
+      <div class="showtime-card bg-gray-800 rounded-xl p-4 border border-gray-700 hover:border-gray-600 transition"
+           data-format="${esc(s.format || '')}" data-st="${esc(stId)}" data-amc="${esc(amcId)}"
+           id="st-${stId}">
+        <div class="flex items-center justify-between">
+          <div>
+            <span class="text-lg font-semibold">${esc(time)}</span>
+            ${s.format ? '<span class="ml-2 bg-gray-700 px-2 py-0.5 rounded text-xs text-gray-300">' + esc(s.format) + '</span>' : ''}
+          </div>
+          ${s.isSoldOut ? '<span class="text-red-400 text-sm">Sold Out</span>' : '<span class="text-green-400 text-sm">Available</span>'}
+        </div>
+        <div id="score-${stId}" class="score-area">
+          ${s.isSoldOut
+            ? renderScoreHTML({ score: 0, label: 'Sold Out', top5: [], totalAvailable: 0 })
+            : '<div class="flex items-center gap-2 mt-2 text-xs text-gray-500"><svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.3"></circle><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path></svg> Loading seats...</div>'
+          }
+        </div>
+        <a href="/monitor/new?theatreId=${theatreId}&theatreSlug=${theatreSlug}&theatreName=${encodeURIComponent(theatreName)}&movieId=${movieId}&movieSlug=${movieSlug}&movieTitle=${encodeURIComponent(movieTitle)}&showtimeId=${stId}&showtimeDisplay=${encodeURIComponent(time + (s.format?' - '+s.format:''))}&showtimeDatetime=${encodeURIComponent(s.dateTime||'')}&showtimeUrl=${encodeURIComponent(s.url||'')}"
+           class="block mt-3 text-center text-xs text-red-400 hover:text-red-300 transition">Monitor this showtime &rarr;</a>
+      </div>`;
+  }
+
+  function buildFormatFilters(showtimes) {
+    const formats = new Set();
+    showtimes.forEach(s => { if (s.format) formats.add(s.format); });
+    const filtersEl = document.getElementById('format-filters');
+    if (formats.size <= 1) { filtersEl.innerHTML = ''; return; }
+
+    const sorted = [...formats].sort();
+    filtersEl.innerHTML =
+      `<button class="format-btn px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-600 ${activeFilter === 'all' ? 'active' : 'bg-gray-800 text-gray-300'}" data-filter="all">All</button>` +
+      sorted.map(f =>
+        `<button class="format-btn px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-600 ${activeFilter === f ? 'active' : 'bg-gray-800 text-gray-300'}" data-filter="${esc(f)}">${esc(f)}</button>`
+      ).join('') +
+      `<button class="format-btn px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-600 ${activeFilter === 'premium' ? 'active' : 'bg-gray-800 text-gray-300'}" data-filter="premium">Premium Only</button>`;
+  }
+
+  function isPremium(format) {
+    if (!format) return false;
+    const f = format.toLowerCase();
+    return f.includes('imax') || f.includes('dolby') || f.includes('70mm') || f.includes('prime');
+  }
+
+  function applyFilter() {
+    const list = document.getElementById('showtime-list');
+    let filtered;
+    if (activeFilter === 'all') {
+      filtered = allShowtimes;
+    } else if (activeFilter === 'premium') {
+      filtered = allShowtimes.filter(s => isPremium(s.format));
+    } else {
+      filtered = allShowtimes.filter(s => s.format === activeFilter);
+    }
+
+    if (filtered.length === 0) {
+      list.innerHTML = '<p class="text-center py-8 text-gray-400">No showtimes match this filter.</p>';
+      return;
+    }
+    list.innerHTML = filtered.map(s => renderCard(s)).join('');
+
+    // Update filter button styles
+    document.querySelectorAll('.format-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.filter === activeFilter);
+      btn.classList.toggle('bg-gray-800', btn.dataset.filter !== activeFilter);
+      btn.classList.toggle('text-gray-300', btn.dataset.filter !== activeFilter);
+    });
+  }
+
+  async function loadShowtimes(date) {
+    const gen = ++fetchGeneration;
+    const list = document.getElementById('showtime-list');
+    list.innerHTML = '<div class="text-center py-8 text-gray-400">Loading...</div>';
+    activeFilter = 'all'; // Reset filter on date change
+    document.getElementById('format-filters').innerHTML = '';
+
+    // Update active date tab
+    dateTabs.querySelectorAll('.date-tab').forEach(btn => {
+      btn.classList.toggle('bg-red-600', btn.dataset.date === date);
+      btn.classList.toggle('text-white', btn.dataset.date === date);
+      btn.classList.toggle('bg-gray-800', btn.dataset.date !== date);
+      btn.classList.toggle('text-gray-300', btn.dataset.date !== date);
+    });
+
+    try {
+      const key = theatreId || theatreSlug;
+      allShowtimes = await fetchApi(`/api/showtimes?theatre=${encodeURIComponent(key)}&movie=${encodeURIComponent(movieId||movieSlug||'')}&date=${date}`);
+      if (allShowtimes.length === 0) {
+        list.innerHTML = '<p class="text-center py-8 text-gray-400">No showtimes for this date.</p>';
+        return;
+      }
+    } catch (err) {
+      list.innerHTML = '<p class="text-center py-8 text-red-400">Failed to load: ' + esc(err.message) + '</p>';
+      return;
+    }
+
+    // Build format filter chips and render cards
+    buildFormatFilters(allShowtimes);
+    applyFilter();
+
+    // Sequentially fetch seat scores for visible showtimes
+    const visible = activeFilter === 'all' ? allShowtimes
+      : activeFilter === 'premium' ? allShowtimes.filter(s => isPremium(s.format))
+      : allShowtimes.filter(s => s.format === activeFilter);
+
+    for (const s of visible) {
+      if (gen !== fetchGeneration) return;
+      if (s.isSoldOut) continue;
+
+      const stId = s.performanceNumber || s.id;
+      const amcId = s.url ? s.url.split('/').pop() : s.id;
+      const scoreEl = document.getElementById('score-' + stId);
+      if (!scoreEl) continue;
+
+      try {
+        const data = await fetchApi(
+          `/api/seats/score?theatreId=${encodeURIComponent(theatreId)}&showtimeId=${encodeURIComponent(stId)}&amcShowtimeId=${encodeURIComponent(amcId)}`
+        );
+        if (gen !== fetchGeneration) return;
+        scoreEl.innerHTML = renderScoreHTML(data);
+      } catch (err) {
+        if (gen !== fetchGeneration) return;
+        scoreEl.innerHTML = renderScoreHTML({ error: err.message });
+      }
+    }
+  }
+
+  // Event: date tab click
+  dateTabs.addEventListener('click', e => {
+    const btn = e.target.closest('.date-tab');
+    if (btn) loadShowtimes(btn.dataset.date);
+  });
+
+  // Event: format filter click
+  document.getElementById('format-filters').addEventListener('click', e => {
+    const btn = e.target.closest('.format-btn');
+    if (!btn) return;
+    activeFilter = btn.dataset.filter;
+    applyFilter();
+    // Re-trigger seat score loading for newly visible cards
+    fetchGeneration++;
+    const gen = fetchGeneration;
+    (async () => {
+      const visible = activeFilter === 'all' ? allShowtimes
+        : activeFilter === 'premium' ? allShowtimes.filter(s => isPremium(s.format))
+        : allShowtimes.filter(s => s.format === activeFilter);
+      for (const s of visible) {
+        if (gen !== fetchGeneration) return;
+        if (s.isSoldOut) continue;
+        const stId = s.performanceNumber || s.id;
+        const scoreEl = document.getElementById('score-' + stId);
+        if (!scoreEl || !scoreEl.querySelector('.animate-spin')) continue; // Skip already loaded
+        const amcId = s.url ? s.url.split('/').pop() : s.id;
+        try {
+          const data = await fetchApi(
+            `/api/seats/score?theatreId=${encodeURIComponent(theatreId)}&showtimeId=${encodeURIComponent(stId)}&amcShowtimeId=${encodeURIComponent(amcId)}`
+          );
+          if (gen !== fetchGeneration) return;
+          scoreEl.innerHTML = renderScoreHTML(data);
+        } catch (err) {
+          if (gen !== fetchGeneration) return;
+          scoreEl.innerHTML = renderScoreHTML({ error: err.message });
+        }
+      }
+    })();
+  });
+
+  loadShowtimes(dates[0]);
+})();
+</script>

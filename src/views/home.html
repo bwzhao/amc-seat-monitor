@@ -1,0 +1,55 @@
+<div class="space-y-6">
+  <div class="text-center py-8">
+    <h1 class="text-3xl font-bold text-red-500 mb-2">AMC Seat Monitor</h1>
+    <p class="text-gray-400">Find the best seats and get notified when they become available</p>
+  </div>
+
+  <div class="bg-gray-800 rounded-xl p-6 space-y-4">
+    <h2 class="text-lg font-semibold">Quick Pick</h2>
+    <div class="space-y-2">
+      <a href="/movies?theatreId=2116&theatreSlug=amc-lincoln-square-13&theatreName=AMC%20Lincoln%20Square%2013"
+         class="block bg-gray-700 rounded-lg p-3 hover:bg-gray-600 transition border border-gray-600 hover:border-red-500">
+        <div class="font-semibold">AMC Lincoln Square 13</div>
+        <div class="text-xs text-gray-400">1998 Broadway, New York, NY 10023</div>
+      </a>
+      <a href="/movies?theatreId=552&theatreSlug=amc-empire-25&theatreName=AMC%20Empire%2025"
+         class="block bg-gray-700 rounded-lg p-3 hover:bg-gray-600 transition border border-gray-600 hover:border-red-500">
+        <div class="font-semibold">AMC Empire 25</div>
+        <div class="text-xs text-gray-400">234 West 42nd Street, New York, NY 10036</div>
+      </a>
+      <a href="/movies?theatreId=2198&theatreSlug=amc-jersey-gardens-20&theatreName=AMC%20Jersey%20Gardens%2020"
+         class="block bg-gray-700 rounded-lg p-3 hover:bg-gray-600 transition border border-gray-600 hover:border-red-500">
+        <div class="font-semibold">AMC Jersey Gardens 20</div>
+        <div class="text-xs text-gray-400">651 Kapkowski Road, Elizabeth, NJ 07201</div>
+      </a>
+    </div>
+  </div>
+
+  <div class="bg-gray-800 rounded-xl p-6 space-y-4">
+    <h2 class="text-lg font-semibold">Search Other Theatres</h2>
+    <form action="/theatres" method="GET" class="flex gap-2">
+      <input type="text" name="q" placeholder="Enter name, zip code, or city"
+        class="flex-1 bg-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500"
+        required>
+      <button type="submit"
+        class="bg-red-600 hover:bg-red-700 text-white font-medium px-6 py-3 rounded-lg transition">
+        Search
+      </button>
+    </form>
+  </div>
+
+  <div class="bg-gray-800 rounded-xl p-6 space-y-3">
+    <h2 class="text-lg font-semibold">How It Works</h2>
+    <ol class="space-y-2 text-gray-300 text-sm">
+      <li class="flex gap-3"><span class="text-red-500 font-bold">1.</span> Pick your AMC theatre</li>
+      <li class="flex gap-3"><span class="text-red-500 font-bold">2.</span> Browse movies and showtimes with seat scores</li>
+      <li class="flex gap-3"><span class="text-red-500 font-bold">3.</span> Monitor for the best seats (center + back half)</li>
+      <li class="flex gap-3"><span class="text-red-500 font-bold">4.</span> Get notified via WeChat when best seats appear</li>
+    </ol>
+  </div>
+
+  <div class="bg-gray-800 rounded-xl p-6 space-y-3">
+    <h2 class="text-lg font-semibold">Setup Notifications</h2>
+    <p class="text-gray-400 text-sm">Configure in <a href="/settings" class="text-red-400 underline">Settings</a> to receive alerts via PushPlus (WeChat) or Bark (iOS).</p>
+  </div>
+</div>

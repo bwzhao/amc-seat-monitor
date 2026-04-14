@@ -1,0 +1,90 @@
+<div class="space-y-4">
+  <h1 class="text-xl font-bold">Settings</h1>
+
+  <form id="settings-form" class="space-y-4">
+    <div class="bg-gray-800 rounded-xl p-4 space-y-3">
+      <h2 class="font-semibold">PushPlus (WeChat Push)</h2>
+      <p class="text-xs text-gray-400">1. Go to <a href="https://www.pushplus.plus" target="_blank" class="text-red-400 underline">pushplus.plus</a><br>
+        2. Scan the QR code with WeChat to log in<br>
+        3. Copy your Token from the dashboard</p>
+      <input type="text" name="pushplusToken" placeholder="Enter PushPlus Token"
+        class="w-full bg-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500">
+      <button type="button" onclick="testNotify('pushplus')"
+        class="text-sm bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition">Test</button>
+    </div>
+
+    <div class="bg-gray-800 rounded-xl p-4 space-y-3">
+      <h2 class="font-semibold">Bark (iOS Push)</h2>
+      <p class="text-xs text-gray-400">Install the <a href="https://apps.apple.com/us/app/bark-push/id1403753865" target="_blank" class="text-red-400 underline">Bark app</a> and copy your device key</p>
+      <input type="text" name="barkKey" placeholder="Enter device key"
+        class="w-full bg-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500">
+      <input type="text" name="barkServer" placeholder="Server URL (default: https://api.day.app)"
+        class="w-full bg-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500">
+      <button type="button" onclick="testNotify('bark')"
+        class="text-sm bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition">Test</button>
+    </div>
+
+    <div class="bg-gray-800 rounded-xl p-4 space-y-3">
+      <h2 class="font-semibold">AMC API Key (Optional)</h2>
+      <p class="text-xs text-gray-400">Register at <a href="https://developers.amctheatres.com" target="_blank" class="text-red-400 underline">developers.amctheatres.com</a> for faster, more reliable data</p>
+      <input type="text" name="amcApiKey" placeholder="Enter vendor key"
+        class="w-full bg-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500">
+    </div>
+
+    <button type="submit"
+      class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-lg transition">
+      Save Settings
+    </button>
+
+    <div id="save-status" class="text-center text-sm hidden"></div>
+  </form>
+</div>
+
+<script>
+(async () => {
+  try {
+    const settings = await fetchApi('/api/settings');
+    const form = document.getElementById('settings-form');
+    if (settings.pushplusToken) form.pushplusToken.value = settings.pushplusToken;
+    if (settings.barkKey) form.barkKey.value = settings.barkKey;
+    if (settings.barkServer) form.barkServer.value = settings.barkServer;
+    if (settings.amcApiKey) form.amcApiKey.value = settings.amcApiKey;
+  } catch {}
+})();
+
+document.getElementById('settings-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const status = document.getElementById('save-status');
+  try {
+    await fetchApi('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pushplusToken: form.pushplusToken.value,
+        barkKey: form.barkKey.value,
+        barkServer: form.barkServer.value,
+        amcApiKey: form.amcApiKey.value,
+      }),
+    });
+    status.className = 'text-center text-sm text-green-400';
+    status.textContent = 'Settings saved!';
+  } catch (err) {
+    status.className = 'text-center text-sm text-red-400';
+    status.textContent = 'Failed: ' + err.message;
+  }
+});
+
+async function testNotify(channel) {
+  try {
+    const r = await fetchApi('/api/settings/test-notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channel }),
+    });
+    alert(r.success ? 'Test notification sent!' : 'Failed: ' + (r.error || 'unknown'));
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
+}
+</script>
