@@ -50,6 +50,15 @@ router.post('/:id/check', async (req, res) => {
   }
 });
 
+// Update monitor settings
+router.patch('/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  const monitor = store.getMonitor(id);
+  if (!monitor) return res.status(404).json({ error: 'Not found' });
+  store.updateMonitor(id, req.body);
+  res.json({ ok: true });
+});
+
 // Stop monitor
 router.post('/:id/stop', (req, res) => {
   store.deactivateMonitor(parseInt(req.params.id));

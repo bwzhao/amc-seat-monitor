@@ -45,6 +45,19 @@ function updateLastNotified(id) {
     .run(id);
 }
 
+function updateMonitor(id, data) {
+  const db = getDb();
+  const fields = [];
+  const values = [];
+  if (data.pollInterval !== undefined) { fields.push('poll_interval_minutes = ?'); values.push(data.pollInterval); }
+  if (data.minRow !== undefined) { fields.push('min_row = ?'); values.push(data.minRow); }
+  if (data.centerBias !== undefined) { fields.push('center_bias = ?'); values.push(data.centerBias); }
+  if (data.isActive !== undefined) { fields.push('is_active = ?'); values.push(data.isActive ? 1 : 0); }
+  if (fields.length === 0) return;
+  values.push(id);
+  db.prepare(`UPDATE monitors SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+}
+
 function deactivateMonitor(id) {
   getDb()
     .prepare('UPDATE monitors SET is_active = 0 WHERE id = ?')
@@ -84,6 +97,6 @@ function getNotifications(monitorId, limit = 20) {
 
 module.exports = {
   createMonitor, getActiveMonitors, getMonitor, getAllMonitors,
-  updateLastChecked, updateLastNotified, deactivateMonitor, deleteMonitor,
+  updateMonitor, updateLastChecked, updateLastNotified, deactivateMonitor, deleteMonitor,
   saveSnapshot, getLastSnapshot, getNotifications,
 };

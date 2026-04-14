@@ -59,6 +59,14 @@ function renderScoreSection(score, top5, totalAvailable) {
     </div>`;
 }
 
+function formatShowtimeDate(datetimeStr) {
+  if (!datetimeStr) return '';
+  try {
+    const d = new Date(datetimeStr);
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  } catch { return ''; }
+}
+
 async function loadMonitors() {
   const list = document.getElementById('monitor-list');
   try {
@@ -71,6 +79,7 @@ async function loadMonitors() {
       const active = m.is_active ? 'border-green-600' : 'border-gray-700 opacity-60';
       const statusDot = m.is_active ? 'bg-green-500' : 'bg-gray-500';
       const lastCheck = m.last_checked_at ? timeAgo(m.last_checked_at) : 'never';
+      const dateStr = formatShowtimeDate(m.showtime_datetime);
 
       let scoreHTML = '';
       if (m.lastScore !== null && m.lastScore !== undefined) {
@@ -81,12 +90,12 @@ async function loadMonitors() {
       }
 
       return `
-        <div class="bg-gray-800 rounded-xl p-4 border ${active} space-y-2">
+        <div class="bg-gray-800 rounded-xl p-4 border ${active} space-y-2" id="monitor-${m.id}">
           <div class="flex items-start justify-between">
             <div>
               <div class="font-semibold">${esc(m.movie_title || 'Unknown Movie')}</div>
               <div class="text-sm text-gray-400">${esc(m.theatre_name)}</div>
-              <div class="text-sm text-gray-400">${esc(m.showtime_display)}</div>
+              <div class="text-sm text-gray-400">${dateStr ? esc(dateStr) + ' · ' : ''}${esc(m.showtime_display)}</div>
             </div>
             <span class="flex items-center gap-1.5 text-xs">
               <span class="w-2 h-2 rounded-full ${statusDot}"></span>
@@ -94,8 +103,27 @@ async function loadMonitors() {
             </span>
           </div>
           ${scoreHTML}
-          <div class="text-xs text-gray-500">
-            Last checked: ${lastCheck} | Every ${m.poll_interval_minutes}min
+          <div class="flex items-center gap-3 text-xs text-gray-500">
+            <span>Last checked: ${lastCheck}</span>
+            <span>|</span>
+            <span>Every
+              <select onchange="updateInterval(${m.id}, this.value)" class="bg-gray-700 text-gray-200 rounded px-1 py-0.5 text-xs">
+                <option value="1" ${m.poll_interval_minutes===1?'selected':''}>1</option>
+                <option value="2" ${m.poll_interval_minutes===2?'selected':''}>2</option>
+                <option value="5" ${m.poll_interval_minutes===5?'selected':''}>5</option>
+                <option value="10" ${m.poll_interval_minutes===10?'selected':''}>10</option>
+              </select> min
+            </span>
+            <span>|</span>
+            <span>Skip
+              <select onchange="updateSkipRows(${m.id}, this.value)" class="bg-gray-700 text-gray-200 rounded px-1 py-0.5 text-xs">
+                <option value="0" ${m.min_row===0?'selected':''}>0</option>
+                <option value="2" ${m.min_row===2?'selected':''}>2</option>
+                <option value="3" ${m.min_row===3?'selected':''}>3</option>
+                <option value="4" ${m.min_row===4?'selected':''}>4</option>
+                <option value="5" ${m.min_row===5?'selected':''}>5</option>
+              </select> rows
+            </span>
           </div>
           <div class="flex gap-2">
             <button onclick="checkNow(${m.id})" class="flex-1 bg-gray-700 hover:bg-gray-600 text-sm py-2 rounded-lg transition">Check Now</button>
@@ -110,6 +138,22 @@ async function loadMonitors() {
   } catch (err) {
     list.innerHTML = '<p class="text-center py-8 text-red-400">' + esc(err.message) + '</p>';
   }
+}
+
+async function updateInterval(id, value) {
+  await fetchApi('/api/monitors/' + id, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pollInterval: parseInt(value) })
+  });
+}
+
+async function updateSkipRows(id, value) {
+  await fetchApi('/api/monitors/' + id, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ minRow: parseInt(value) })
+  });
 }
 
 async function checkNow(id) {
