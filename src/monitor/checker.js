@@ -1,5 +1,5 @@
 const amcClient = require('../amc/client');
-const { analyzeSeats } = require('../amc/seat-analyzer');
+const { analyzeAndScore } = require('../amc/seat-analyzer');
 const store = require('./store');
 const { notify } = require('../notify');
 
@@ -24,20 +24,20 @@ async function checkMonitor(monitor) {
       amcShowtimeId
     );
 
-    const result = analyzeSeats(layout.seats, {
-      minRow: monitor.min_row,
+    const result = analyzeAndScore(layout.seats, {
       centerBias: monitor.center_bias,
+      skipFrontRows: monitor.min_row || 0,
     });
 
     store.updateLastChecked(monitor.id);
     store.saveSnapshot(
       monitor.id,
-      JSON.stringify(result.goodSeats),
+      JSON.stringify(result.top5),
       result.totalAvailable
     );
 
-    if (result.goodSeats.length === 0) {
-      console.log(`Monitor #${monitor.id}: no good seats`);
+    if (result.top5.length === 0) {
+      console.log(`Monitor #${monitor.id}: no seats available`);
       return;
     }
 
@@ -47,10 +47,10 @@ async function checkMonitor(monitor) {
       ? new Set(JSON.parse(lastSnapshot.good_seats_json).map(s => s.seatName))
       : new Set();
 
-    const newSeats = result.goodSeats.filter(s => !prevSeats.has(s.seatName));
+    const newSeats = result.top5.filter(s => !prevSeats.has(s.seatName));
 
     if (newSeats.length === 0 && prevSeats.size > 0) {
-      console.log(`Monitor #${monitor.id}: ${result.goodSeats.length} good seats (no new ones)`);
+      console.log(`Monitor #${monitor.id}: score ${result.score} ${result.label} (no new seats)`);
       return;
     }
 
@@ -64,16 +64,14 @@ async function checkMonitor(monitor) {
     }
 
     // Send notification
-    const seatList = result.goodSeats
-      .slice(0, 10)
-      .map((s) => s.seatName)
-      .join(', ');
+    const seatList = result.top5.map((s) => s.seatName).join(', ');
 
-    const title = `${result.goodSeats.length} Good Seats - ${monitor.movie_title}`;
+    const title = `Score ${result.score} ${result.label} - ${monitor.movie_title}`;
     const body = [
       `**${monitor.movie_title}** at **${monitor.theatre_name}**`,
       `Showtime: ${monitor.showtime_display}`,
-      `Good seats (${result.goodSeats.length}): ${seatList}`,
+      `Score: **${result.score}/100** (${result.label})`,
+      `Best seats: ${seatList}`,
       `Total available: ${result.totalAvailable}`,
       monitor.showtime_url
         ? `[Book now](https://www.amctheatres.com${monitor.showtime_url})`

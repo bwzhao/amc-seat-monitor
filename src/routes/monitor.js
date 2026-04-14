@@ -4,9 +4,18 @@ const { checkMonitor } = require('../monitor/checker');
 
 const router = Router();
 
-// List all monitors
+// List all monitors with latest snapshot
 router.get('/', (req, res) => {
-  res.json(store.getAllMonitors());
+  const monitors = store.getAllMonitors();
+  const result = monitors.map((m) => {
+    const snap = store.getLastSnapshot(m.id);
+    return {
+      ...m,
+      lastScore: snap ? JSON.parse(snap.good_seats_json) : null,
+      lastTotalAvailable: snap ? snap.total_available : null,
+    };
+  });
+  res.json(result);
 });
 
 // Create monitor
@@ -26,16 +35,16 @@ router.post('/:id/check', async (req, res) => {
 
   try {
     const amcClient = require('../amc/client');
-    const { analyzeSeats } = require('../amc/seat-analyzer');
+    const { analyzeAndScore } = require('../amc/seat-analyzer');
     const amcShowtimeId = monitor.showtime_url ? monitor.showtime_url.split('/').pop() : monitor.showtime_id;
     const layout = await amcClient.getSeatLayout(monitor.theatre_id, monitor.showtime_id, amcShowtimeId);
-    const result = analyzeSeats(layout.seats, {
-      minRow: monitor.min_row,
+    const result = analyzeAndScore(layout.seats, {
       centerBias: monitor.center_bias,
+      skipFrontRows: monitor.min_row || 0,
     });
     store.updateLastChecked(monitor.id);
-    store.saveSnapshot(monitor.id, JSON.stringify(result.goodSeats), result.totalAvailable);
-    res.json({ goodSeats: result.goodSeats.length, totalAvailable: result.totalAvailable, seats: result.goodSeats });
+    store.saveSnapshot(monitor.id, JSON.stringify(result.top5), result.totalAvailable);
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

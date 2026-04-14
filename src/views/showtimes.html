@@ -6,7 +6,18 @@
 
   <div class="flex gap-2 overflow-x-auto pb-2" id="date-tabs"></div>
 
-  <div class="flex gap-2 flex-wrap" id="format-filters"></div>
+  <div class="flex gap-2 flex-wrap items-center" id="format-filters"></div>
+
+  <div class="flex items-center gap-3 bg-gray-800 rounded-lg px-4 py-2">
+    <label class="text-sm text-gray-300">Skip front rows:</label>
+    <select id="skip-rows" class="bg-gray-700 text-white text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-red-500">
+      <option value="0">None</option>
+      <option value="2">2 rows</option>
+      <option value="3" selected>3 rows</option>
+      <option value="4">4 rows</option>
+      <option value="5">5 rows</option>
+    </select>
+  </div>
 
   <div id="showtime-list" class="space-y-3">
     <div class="text-center py-8 text-gray-400">Loading showtimes...</div>
@@ -62,6 +73,7 @@
   let fetchGeneration = 0;
   let allShowtimes = [];     // Full list for current date
   let activeFilter = 'all';  // 'all' or a format string
+  let skipFrontRows = 3;     // Default: skip first 3 rows
 
   function scoreColor(score) {
     if (score >= 80) return '#48bb78';
@@ -76,7 +88,7 @@
       return '<div class="text-xs text-gray-500 mt-2">Seats unavailable</div>';
     }
     const color = scoreColor(data.score);
-    const top5Html = data.top5.map(s =>
+    const chips = data.top5.map(s =>
       `<span class="seat-chip bg-gray-700 text-gray-200">${esc(s.seatName)}</span>`
     ).join('');
     return `
@@ -85,8 +97,8 @@
           <div class="score-ring-inner bg-gray-800 text-white">${data.score}</div>
         </div>
         <div>
-          <div class="text-xs font-medium" style="color:${color}">${esc(data.label)} <span class="text-gray-500 font-normal">${data.totalAvailable} avail</span></div>
-          <div class="mt-0.5">${top5Html}</div>
+          <div class="text-xs text-gray-400 mb-1">${data.totalAvailable} seats available</div>
+          <div>${chips}</div>
         </div>
       </div>`;
   }
@@ -210,7 +222,7 @@
 
       try {
         const data = await fetchApi(
-          `/api/seats/score?theatreId=${encodeURIComponent(theatreId)}&showtimeId=${encodeURIComponent(stId)}&amcShowtimeId=${encodeURIComponent(amcId)}`
+          `/api/seats/score?theatreId=${encodeURIComponent(theatreId)}&showtimeId=${encodeURIComponent(stId)}&amcShowtimeId=${encodeURIComponent(amcId)}&skipFrontRows=${skipFrontRows}`
         );
         if (gen !== fetchGeneration) return;
         scoreEl.innerHTML = renderScoreHTML(data);
@@ -249,7 +261,40 @@
         const amcId = s.url ? s.url.split('/').pop() : s.id;
         try {
           const data = await fetchApi(
-            `/api/seats/score?theatreId=${encodeURIComponent(theatreId)}&showtimeId=${encodeURIComponent(stId)}&amcShowtimeId=${encodeURIComponent(amcId)}`
+            `/api/seats/score?theatreId=${encodeURIComponent(theatreId)}&showtimeId=${encodeURIComponent(stId)}&amcShowtimeId=${encodeURIComponent(amcId)}&skipFrontRows=${skipFrontRows}`
+          );
+          if (gen !== fetchGeneration) return;
+          scoreEl.innerHTML = renderScoreHTML(data);
+        } catch (err) {
+          if (gen !== fetchGeneration) return;
+          scoreEl.innerHTML = renderScoreHTML({ error: err.message });
+        }
+      }
+    })();
+  });
+
+  // Event: skip front rows change — re-render cards and refetch scores
+  document.getElementById('skip-rows').addEventListener('change', (e) => {
+    skipFrontRows = parseInt(e.target.value) || 0;
+    applyFilter();
+    // Refetch all scores with new skipFrontRows
+    fetchGeneration++;
+    const gen = fetchGeneration;
+    (async () => {
+      const visible = activeFilter === 'all' ? allShowtimes
+        : activeFilter === 'premium' ? allShowtimes.filter(s => isPremium(s.format))
+        : allShowtimes.filter(s => s.format === activeFilter);
+      for (const s of visible) {
+        if (gen !== fetchGeneration) return;
+        if (s.isSoldOut) continue;
+        const stId = s.performanceNumber || s.id;
+        const amcId = s.url ? s.url.split('/').pop() : s.id;
+        const scoreEl = document.getElementById('score-' + stId);
+        if (!scoreEl) continue;
+        scoreEl.innerHTML = '<div class="flex items-center gap-2 mt-2 text-xs text-gray-500"><svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.3"></circle><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path></svg> Recalculating...</div>';
+        try {
+          const data = await fetchApi(
+            `/api/seats/score?theatreId=${encodeURIComponent(theatreId)}&showtimeId=${encodeURIComponent(stId)}&amcShowtimeId=${encodeURIComponent(amcId)}&skipFrontRows=${skipFrontRows}`
           );
           if (gen !== fetchGeneration) return;
           scoreEl.innerHTML = renderScoreHTML(data);

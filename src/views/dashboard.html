@@ -9,7 +9,56 @@
   </div>
 </div>
 
+<style>
+  .score-ring {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .score-ring-inner {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+  }
+  .seat-chip {
+    display: inline-block; padding: 2px 6px; border-radius: 4px;
+    font-size: 11px; margin-right: 4px; margin-top: 2px;
+  }
+</style>
+
 <script>
+function scoreColor(score) {
+  if (score >= 80) return '#48bb78';
+  if (score >= 60) return '#4299e1';
+  if (score >= 40) return '#ecc94b';
+  if (score >= 20) return '#ed8936';
+  return '#fc8181';
+}
+
+function renderScoreSection(score, top5, totalAvailable) {
+  const chips = (top5 || []).map(s =>
+    `<span class="seat-chip bg-gray-700 text-gray-200">${esc(s.seatName || s)}</span>`
+  ).join('');
+  if (score !== null && score !== undefined) {
+    const color = scoreColor(score);
+    return `
+      <div class="flex items-center gap-3 mt-2">
+        <div class="score-ring" style="background: conic-gradient(${color} ${score}%, #374151 0)">
+          <div class="score-ring-inner bg-gray-900 text-white">${score}</div>
+        </div>
+        <div>
+          <div class="text-xs text-gray-400 mb-1">${totalAvailable} seats available</div>
+          <div>${chips}</div>
+        </div>
+      </div>`;
+  }
+  return `
+    <div class="mt-2">
+      <div class="text-xs text-gray-400 mb-1">${totalAvailable} seats available</div>
+      <div>${chips}</div>
+    </div>`;
+}
+
 async function loadMonitors() {
   const list = document.getElementById('monitor-list');
   try {
@@ -22,8 +71,17 @@ async function loadMonitors() {
       const active = m.is_active ? 'border-green-600' : 'border-gray-700 opacity-60';
       const statusDot = m.is_active ? 'bg-green-500' : 'bg-gray-500';
       const lastCheck = m.last_checked_at ? timeAgo(m.last_checked_at) : 'never';
+
+      let scoreHTML = '';
+      if (m.lastScore !== null && m.lastScore !== undefined) {
+        const top5 = Array.isArray(m.lastScore) ? m.lastScore : [];
+        scoreHTML = renderScoreSection(null, top5, m.lastTotalAvailable);
+      } else {
+        scoreHTML = '<div class="text-xs text-gray-500 mt-1">No data yet</div>';
+      }
+
       return `
-        <div class="bg-gray-800 rounded-xl p-4 border ${active} space-y-3">
+        <div class="bg-gray-800 rounded-xl p-4 border ${active} space-y-2">
           <div class="flex items-start justify-between">
             <div>
               <div class="font-semibold">${esc(m.movie_title || 'Unknown Movie')}</div>
@@ -35,9 +93,9 @@ async function loadMonitors() {
               ${m.is_active ? 'Active' : 'Stopped'}
             </span>
           </div>
-          <div class="text-xs text-gray-500 space-y-1">
-            <div>Last checked: ${lastCheck}</div>
-            <div>Min row: ${m.min_row} | Center bias: ${Math.round(m.center_bias*100)}% | Every ${m.poll_interval_minutes}min</div>
+          ${scoreHTML}
+          <div class="text-xs text-gray-500">
+            Last checked: ${lastCheck} | Every ${m.poll_interval_minutes}min
           </div>
           <div class="flex gap-2">
             <button onclick="checkNow(${m.id})" class="flex-1 bg-gray-700 hover:bg-gray-600 text-sm py-2 rounded-lg transition">Check Now</button>
@@ -46,7 +104,7 @@ async function loadMonitors() {
               : `<button onclick="deleteMonitor(${m.id})" class="flex-1 bg-gray-700 hover:bg-red-700 text-sm py-2 rounded-lg transition text-red-400">Delete</button>`
             }
           </div>
-          <div id="result-${m.id}" class="hidden text-sm bg-gray-900 rounded-lg p-3 mt-2"></div>
+          <div id="result-${m.id}" class="hidden"></div>
         </div>`;
     }).join('');
   } catch (err) {
@@ -57,12 +115,12 @@ async function loadMonitors() {
 async function checkNow(id) {
   const el = document.getElementById('result-' + id);
   el.classList.remove('hidden');
-  el.innerHTML = '<span class="text-gray-400">Checking...</span>';
+  el.innerHTML = '<div class="flex items-center gap-2 text-xs text-gray-500 mt-1"><svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.3"></circle><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path></svg> Checking seats...</div>';
   try {
     const r = await fetchApi('/api/monitors/' + id + '/check', { method: 'POST' });
-    el.innerHTML = `<div class="text-green-400">Good seats: ${r.goodSeats}</div><div class="text-gray-400">Total available: ${r.totalAvailable}</div>`;
+    el.innerHTML = renderScoreSection(r.score, r.top5, r.totalAvailable);
   } catch (err) {
-    el.innerHTML = '<span class="text-red-400">' + esc(err.message) + '</span>';
+    el.innerHTML = '<div class="text-xs text-red-400 mt-1">' + esc(err.message) + '</div>';
   }
 }
 

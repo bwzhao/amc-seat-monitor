@@ -25,11 +25,19 @@ function rowToIndex(row) {
  */
 function analyzeSeats(seats, opts = {}) {
   const centerBias = opts.centerBias ?? 0.33;
+  const skipFrontRows = opts.skipFrontRows ?? 0;
 
   // Filter displayable seats
-  const displayable = seats.filter(
+  let displayable = seats.filter(
     (s) => s.shouldDisplay !== false && !EXCLUDE_TYPES.includes(s.type)
   );
+
+  // Skip front rows if requested
+  if (skipFrontRows > 0 && displayable.length > 0) {
+    const allRowIndices = displayable.map((s) => rowToIndex(s.row));
+    const frontCutoff = Math.min(...allRowIndices) + skipFrontRows;
+    displayable = displayable.filter((s) => rowToIndex(s.row) >= frontCutoff);
+  }
 
   if (displayable.length === 0) {
     return { goodSeats: [], totalAvailable: 0, grid: buildGrid(seats) };
@@ -126,16 +134,24 @@ function buildGrid(seats) {
  */
 function analyzeAndScore(seats, opts = {}) {
   const centerBias = opts.centerBias ?? 0.33;
+  const skipFrontRows = opts.skipFrontRows ?? 0;
 
-  const displayable = seats.filter(
+  let displayable = seats.filter(
     (s) => s.shouldDisplay !== false && !EXCLUDE_TYPES.includes(s.type)
   );
+
+  // Skip front rows if requested
+  if (skipFrontRows > 0 && displayable.length > 0) {
+    const allRowIndices = displayable.map((s) => rowToIndex(s.row));
+    const frontCutoff = Math.min(...allRowIndices) + skipFrontRows;
+    displayable = displayable.filter((s) => rowToIndex(s.row) >= frontCutoff);
+  }
 
   if (displayable.length === 0) {
     return { score: 0, label: 'No Seats', top5: [], totalAvailable: 0 };
   }
 
-  // Recompute geometry (same as analyzeSeats)
+  // Recompute geometry
   const rowIndices = displayable.map((s) => rowToIndex(s.row));
   const minRowIdx = Math.min(...rowIndices);
   const maxRowIdx = Math.max(...rowIndices);
