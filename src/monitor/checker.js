@@ -30,22 +30,25 @@ async function checkMonitor(monitor) {
     });
 
     store.updateLastChecked(monitor.id);
+
+    if (result.top5.length === 0) {
+      store.saveSnapshot(monitor.id, JSON.stringify(result.top5), result.totalAvailable);
+      console.log(`Monitor #${monitor.id}: no seats available`);
+      return;
+    }
+
+    // Read previous snapshot BEFORE saving the new one
+    const lastSnapshot = store.getLastSnapshot(monitor.id);
+    const prevSeats = lastSnapshot
+      ? new Set(JSON.parse(lastSnapshot.good_seats_json).map(s => s.seatName))
+      : new Set();
+
+    // Save new snapshot
     store.saveSnapshot(
       monitor.id,
       JSON.stringify(result.top5),
       result.totalAvailable
     );
-
-    if (result.top5.length === 0) {
-      console.log(`Monitor #${monitor.id}: no seats available`);
-      return;
-    }
-
-    // Check for new seats vs last notification
-    const lastSnapshot = store.getLastSnapshot(monitor.id);
-    const prevSeats = lastSnapshot
-      ? new Set(JSON.parse(lastSnapshot.good_seats_json).map(s => s.seatName))
-      : new Set();
 
     const newSeats = result.top5.filter(s => !prevSeats.has(s.seatName));
 
