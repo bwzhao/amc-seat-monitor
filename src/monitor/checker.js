@@ -14,7 +14,6 @@ async function checkMonitor(monitor) {
       return;
     }
 
-    // Extract AMC showtime ID from the stored URL (e.g., /showtimes/141187650)
     const amcShowtimeId = monitor.showtime_url
       ? monitor.showtime_url.split('/').pop()
       : monitor.showtime_id;
@@ -30,52 +29,36 @@ async function checkMonitor(monitor) {
     });
 
     store.updateLastChecked(monitor.id);
-
-    if (result.top5.length === 0) {
-      store.saveSnapshot(monitor.id, JSON.stringify(result.top5), result.totalAvailable);
-      console.log(`Monitor #${monitor.id}: no seats available`);
-      return;
-    }
-
-    // Read previous snapshot BEFORE saving the new one
-    const lastSnapshot = store.getLastSnapshot(monitor.id);
-    const prevSeats = lastSnapshot
-      ? new Set(JSON.parse(lastSnapshot.good_seats_json).map(s => s.seatName))
-      : new Set();
-
-    // Save new snapshot
     store.saveSnapshot(
       monitor.id,
       JSON.stringify(result.top5),
       result.totalAvailable
     );
 
-    const newSeats = result.top5.filter(s => !prevSeats.has(s.seatName));
-
-    if (newSeats.length === 0 && prevSeats.size > 0) {
-      console.log(`Monitor #${monitor.id}: score ${result.score} ${result.label} (no new seats)`);
+    // No seats at all → skip
+    if (result.totalAvailable === 0) {
+      console.log(`Monitor #${monitor.id}: sold out`);
       return;
     }
 
-    // Cooldown check
+    // Cooldown — don't spam
     if (monitor.last_notified_at) {
       const elapsed = Date.now() - new Date(monitor.last_notified_at).getTime();
       if (elapsed < COOLDOWN_MS) {
-        console.log(`Monitor #${monitor.id}: cooldown active`);
+        console.log(`Monitor #${monitor.id}: ${result.totalAvailable} avail (cooldown)`);
         return;
       }
     }
 
-    // Send notification
+    // Seats available → notify
     const seatList = result.top5.map((s) => s.seatName).join(', ');
 
-    const title = `Score ${result.score} ${result.label} - ${monitor.movie_title}`;
+    const title = `${result.totalAvailable} Seats - ${monitor.movie_title}`;
     const body = [
       `**${monitor.movie_title}** at **${monitor.theatre_name}**`,
       `Showtime: ${monitor.showtime_display}`,
-      `Score: **${result.score}/100** (${result.label})`,
-      `Best seats: ${seatList}`,
       `Total available: ${result.totalAvailable}`,
+      `Top seats: ${seatList}`,
       monitor.showtime_url
         ? `[Book now](https://www.amctheatres.com${monitor.showtime_url})`
         : '',
@@ -90,9 +73,9 @@ async function checkMonitor(monitor) {
     if (monitor.notify_email) {
       await notify(monitor.id, title, body, bookingUrl);
       store.updateLastNotified(monitor.id);
-      console.log(`Monitor #${monitor.id}: notified! score ${result.score}`);
+      console.log(`Monitor #${monitor.id}: notified! ${result.totalAvailable} seats`);
     } else {
-      console.log(`Monitor #${monitor.id}: score ${result.score} (notifications off)`);
+      console.log(`Monitor #${monitor.id}: ${result.totalAvailable} seats (notifications off)`);
     }
   } catch (err) {
     console.error(`Monitor #${monitor.id} check failed:`, err.message);
