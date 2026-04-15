@@ -83,7 +83,7 @@
           notifyEmail: form.notifyEmail.checked,
         }),
       });
-      location.href = '/dashboard';
+      history.back();
     } catch (err) {
       btn.disabled = false;
       btn.textContent = 'Start Monitoring';
