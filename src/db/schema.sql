@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS monitors (
   min_row INTEGER DEFAULT 5,
   center_bias REAL DEFAULT 0.33,
   poll_interval_minutes INTEGER DEFAULT 2,
+  notify_email INTEGER DEFAULT 1,
   is_active INTEGER DEFAULT 1,
   last_checked_at TEXT,
   last_notified_at TEXT,

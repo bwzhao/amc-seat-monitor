@@ -7,5 +7,10 @@ module.exports = {
   serverchanKey: process.env.SERVERCHAN_KEY || '',
   barkKey: process.env.BARK_KEY || '',
   barkServer: process.env.BARK_SERVER || 'https://api.day.app',
+  notifyEmail: process.env.NOTIFY_EMAIL || '',
+  smtpHost: process.env.SMTP_HOST || '',
+  smtpPort: parseInt(process.env.SMTP_PORT, 10) || 587,
+  smtpUser: process.env.SMTP_USER || '',
+  smtpPass: process.env.SMTP_PASS || '',
   dbPath: require('path').join(__dirname, '..', 'data', 'amc.sqlite'),
 };

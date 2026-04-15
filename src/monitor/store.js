@@ -5,14 +5,15 @@ function createMonitor(data) {
   const stmt = db.prepare(`
     INSERT INTO monitors (theatre_id, theatre_name, theatre_slug, movie_id, movie_title,
       showtime_id, showtime_display, showtime_datetime, showtime_url,
-      min_row, center_bias, poll_interval_minutes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      min_row, center_bias, poll_interval_minutes, notify_email)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const result = stmt.run(
     data.theatreId, data.theatreName, data.theatreSlug,
     data.movieId, data.movieTitle,
     data.showtimeId, data.showtimeDisplay, data.showtimeDatetime, data.showtimeUrl,
-    data.minRow ?? 5, data.centerBias ?? 0.33, data.pollInterval ?? 2
+    data.minRow ?? 5, data.centerBias ?? 0.33, data.pollInterval ?? 2,
+    data.notifyEmail !== undefined ? (data.notifyEmail ? 1 : 0) : 1
   );
   return result.lastInsertRowid;
 }
@@ -52,6 +53,7 @@ function updateMonitor(id, data) {
   if (data.pollInterval !== undefined) { fields.push('poll_interval_minutes = ?'); values.push(data.pollInterval); }
   if (data.minRow !== undefined) { fields.push('min_row = ?'); values.push(data.minRow); }
   if (data.centerBias !== undefined) { fields.push('center_bias = ?'); values.push(data.centerBias); }
+  if (data.notifyEmail !== undefined) { fields.push('notify_email = ?'); values.push(data.notifyEmail ? 1 : 0); }
   if (data.isActive !== undefined) { fields.push('is_active = ?'); values.push(data.isActive ? 1 : 0); }
   if (fields.length === 0) return;
   values.push(id);

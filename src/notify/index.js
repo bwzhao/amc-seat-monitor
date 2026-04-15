@@ -1,13 +1,21 @@
 const pushplus = require('./pushplus');
 const serverchan = require('./serverchan');
 const bark = require('./bark');
+const email = require('./email');
 const config = require('../config');
 const { getDb } = require('../db');
 
 async function notify(monitorId, title, body, bookingUrl) {
   const results = [];
 
-  // PushPlus (primary WeChat push)
+  // Email
+  if (config.notifyEmail && config.smtpHost) {
+    const r = await email.send(title, body);
+    logNotification(monitorId, 'email', title, body, r.success);
+    results.push({ channel: 'email', ...r });
+  }
+
+  // PushPlus (WeChat push)
   if (config.pushplusToken) {
     const r = await pushplus.send(title, body);
     logNotification(monitorId, 'pushplus', title, body, r.success);

@@ -84,9 +84,13 @@ async function checkMonitor(monitor) {
       ? `https://www.amctheatres.com${monitor.showtime_url}`
       : '';
 
-    await notify(monitor.id, title, body, bookingUrl);
-    store.updateLastNotified(monitor.id);
-    console.log(`Monitor #${monitor.id}: notified! ${result.goodSeats.length} good seats`);
+    if (monitor.notify_email) {
+      await notify(monitor.id, title, body, bookingUrl);
+      store.updateLastNotified(monitor.id);
+      console.log(`Monitor #${monitor.id}: notified! score ${result.score}`);
+    } else {
+      console.log(`Monitor #${monitor.id}: score ${result.score} (notifications off)`);
+    }
   } catch (err) {
     console.error(`Monitor #${monitor.id} check failed:`, err.message);
   }

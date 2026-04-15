@@ -16,6 +16,11 @@ function getDb() {
 
     const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
     db.exec(schema);
+
+    // Migrations for existing databases
+    try {
+      db.exec('ALTER TABLE monitors ADD COLUMN notify_email INTEGER DEFAULT 1');
+    } catch {} // Column already exists
   }
   return db;
 }

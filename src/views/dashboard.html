@@ -125,6 +125,12 @@ async function loadMonitors() {
               </select> rows
             </span>
           </div>
+          <label class="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+            <input type="checkbox" ${m.notify_email ? 'checked' : ''}
+              onchange="toggleNotify(${m.id}, this.checked)"
+              class="w-4 h-4 rounded bg-gray-700 border-gray-600 text-red-500 focus:ring-red-500">
+            Send email notifications
+          </label>
           <div class="flex gap-2">
             <button onclick="checkNow(${m.id})" class="flex-1 bg-gray-700 hover:bg-gray-600 text-sm py-2 rounded-lg transition">Check Now</button>
             ${m.is_active
@@ -138,6 +144,14 @@ async function loadMonitors() {
   } catch (err) {
     list.innerHTML = '<p class="text-center py-8 text-red-400">' + esc(err.message) + '</p>';
   }
+}
+
+async function toggleNotify(id, checked) {
+  await fetchApi('/api/monitors/' + id, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ notifyEmail: checked })
+  });
 }
 
 async function updateInterval(id, value) {
