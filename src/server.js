@@ -45,5 +45,7 @@ startScheduler();
 
 app.listen(config.port, () => {
   const mode = config.amcApiKey ? 'API' : 'Scrape';
-  console.log(`AMC Seat Monitor running on http://localhost:${config.port} [${mode} mode]`);
+  const email = config.notifyEmail && config.smtpHost ? `Email → ${config.notifyEmail}` : 'Email OFF';
+  const push = config.pushplusToken ? 'PushPlus ON' : 'PushPlus OFF';
+  console.log(`AMC Seat Monitor running on http://localhost:${config.port} [${mode} mode] [${email}] [${push}]`);
 });
